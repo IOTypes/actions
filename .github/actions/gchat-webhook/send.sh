@@ -21,13 +21,14 @@ if [[ "${include_ctx,,}" == "true" ]]; then
   msg="${msg}${footer}"
 fi
 
+# EXPORT FIRST
+export MSG="$msg"
+
 payload="$(python3 - <<'PY'
 import json, os
 print(json.dumps({"text": os.environ["MSG"]}, ensure_ascii=False))
 PY
 )"
-
-export MSG="$msg"
 
 curl -sS -X POST \
   -H "Content-Type: application/json; charset=utf-8" \
