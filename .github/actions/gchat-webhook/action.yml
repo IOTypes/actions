@@ -1,4 +1,4 @@
-name: "Google Chat Webhook Notify"
+name: "Google Chat SaWrong"
 description: "Send a message to Google Chat via incoming webhook"
 
 inputs:
@@ -20,50 +20,14 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Build payload
-      id: payload
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        msg="${{ inputs.message }}"
-        title="${{ inputs.title }}"
-        include_ctx="${{ inputs.include_job_context }}"
-
-        if [[ -n "${title}" ]]; then
-          msg="[$title] $msg"
-        fi
-
-        if [[ "${include_ctx}" == "true" ]]; then
-          footer="$(cat <<EOF
-
-Repository: ${GITHUB_REPOSITORY}
-Workflow: ${GITHUB_WORKFLOW}
-Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-Ref: ${GITHUB_REF}
-EOF
-)"
-          msg="${msg}${footer}"
-        fi
-
-        export MSG="$msg"
-        payload="$(python3 - <<'PY'
-import json, os
-msg = os.environ["MSG"]
-print(json.dumps({"text": msg}, ensure_ascii=False))
-PY
-)"
-        {
-          echo "payload<<__PAYLOAD__"
-          echo "$payload"
-          echo "__PAYLOAD__"
-        } >> "$GITHUB_OUTPUT"
-
     - name: Send to Google Chat
       shell: bash
+      env:
+        INPUT_WEBHOOK_URL: ${{ inputs.webhook_url }}
+        INPUT_MESSAGE: ${{ inputs.message }}
+        INPUT_TITLE: ${{ inputs.title }}
+        INPUT_INCLUDE_JOB_CONTEXT: ${{ inputs.include_job_context }}
       run: |
         set -euo pipefail
-        curl -sS -X POST \
-          -H "Content-Type: application/json" \
-          -d '${{ steps.payload.outputs.payload }}' \
-          '${{ inputs.webhook_url }}'
+        chmod +x "$GITHUB_ACTION_PATH/send.sh"
+        "$GITHUB_ACTION_PATH/send.sh"
