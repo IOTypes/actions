@@ -11,14 +11,10 @@ if [[ -n "$title" ]]; then
 fi
 
 if [[ "${include_ctx,,}" == "true" ]]; then
-  footer="$(printf '\n\nRepository: %s\nWorkflow: %s\nRun: %s/%s/actions/runs/%s\nRef: %s\n' \
+  footer="$(printf '\n\nRepository: %s \n Ref: %s\n' \
     "$GITHUB_REPOSITORY" \
-    "$GITHUB_WORKFLOW" \
-    "$GITHUB_SERVER_URL" \
-    "$GITHUB_REPOSITORY" \
-    "$GITHUB_RUN_ID" \
     "$GITHUB_REF")"
-  msg="${msg}${footer}"
+  msg="${msg}\n${footer}"
 fi
 
 # EXPORT FIRST
