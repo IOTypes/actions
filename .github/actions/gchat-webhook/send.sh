@@ -7,7 +7,7 @@ include_ctx="${INPUT_INCLUDE_JOB_CONTEXT:-true}"
 webhook_url="${INPUT_WEBHOOK_URL}"
 
 if [[ -n "$title" ]]; then
-  msg="$title \n $msg"
+  msg="$(printf "%s\n%s" "$title" "$msg")"
 fi
 
 if [[ "${include_ctx,,}" == "true" ]]; then
