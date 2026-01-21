@@ -1,5 +1,6 @@
 name: "Google Chat Webhook Notify"
 description: "Send a message to Google Chat via incoming webhook"
+
 inputs:
   webhook_url:
     description: "Google Chat incoming webhook URL"
@@ -20,6 +21,7 @@ runs:
   using: "composite"
   steps:
     - name: Build payload
+      id: payload
       shell: bash
       run: |
         set -euo pipefail
@@ -28,64 +30,40 @@ runs:
         title="${{ inputs.title }}"
         include_ctx="${{ inputs.include_job_context }}"
 
-        # Optional title prefix
-        if [[ -n "$title" ]]; then
+        if [[ -n "${title}" ]]; then
           msg="[$title] $msg"
         fi
 
-        # Optional GitHub context footer
-        if [[ "$include_ctx" == "true" ]]; then
-          msg="$msg
+        if [[ "${include_ctx}" == "true" ]]; then
+          footer="$(cat <<EOF
 
-Repository: $GITHUB_REPOSITORY
-Workflow: $GITHUB_WORKFLOW
-Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-Ref: $GITHUB_REF"
+Repository: ${GITHUB_REPOSITORY}
+Workflow: ${GITHUB_WORKFLOW}
+Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+Ref: ${GITHUB_REF}
+EOF
+)"
+          msg="${msg}${footer}"
         fi
 
-        # Escape message as JSON safely using python (available on ubuntu runners)
-        python3 - <<'PY'
-import json, os
-msg = os.environ["MSG"]
-payload = {"text": msg}
-print(json.dumps(payload, ensure_ascii=False))
-PY
-      env:
-        MSG: ${{ inputs.message }}
-
-    - name: Send to Google Chat
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Recompute final message (must match the same logic used above)
-        msg="${{ inputs.message }}"
-        title="${{ inputs.title }}"
-        include_ctx="${{ inputs.include_job_context }}"
-
-        if [[ -n "$title" ]]; then
-          msg="[$title] $msg"
-        fi
-
-        if [[ "$include_ctx" == "true" ]]; then
-          msg="$msg
-
-Repository: $GITHUB_REPOSITORY
-Workflow: $GITHUB_WORKFLOW
-Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-Ref: $GITHUB_REF"
-        fi
-
+        export MSG="$msg"
         payload="$(python3 - <<'PY'
 import json, os
 msg = os.environ["MSG"]
 print(json.dumps({"text": msg}, ensure_ascii=False))
 PY
-        )"
+)"
+        {
+          echo "payload<<__PAYLOAD__"
+          echo "$payload"
+          echo "__PAYLOAD__"
+        } >> "$GITHUB_OUTPUT"
 
+    - name: Send to Google Chat
+      shell: bash
+      run: |
+        set -euo pipefail
         curl -sS -X POST \
           -H "Content-Type: application/json" \
-          -d "$payload" \
-          "${{ inputs.webhook_url }}"
-      env:
-        MSG: ${{ inputs.message }}
+          -d '${{ steps.payload.outputs.payload }}' \
+          '${{ inputs.webhook_url }}'
